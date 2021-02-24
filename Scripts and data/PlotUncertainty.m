@@ -1,144 +1,50 @@
-function [] = PlotUncertainty(doFig56, doFig4, res)
-close all
-%PLOTUNCERTAINTY Summary of this function goes here
-%   Detailed explanation goes here
-if nargin<1, doFig56=0; end
-if nargin<2, doFig4=0; end
-if nargin<3, res=0.01; end
-if ~doFig56
-    baseFolder = './Results, Fig2-3' ;
-    load('./Results, Fig2-3/simple,  opt-eSS(181.58).mat')
-elseif  doFig56
-    baseFolder = './Results, Fig5-6' ;
-    load('./Results, Fig5-6/simple, opt-eSS(213.71).mat')
+function [] = PlotUncertainty(doDiabetes,res, modelName)
+clear mex
+
+if nargin<1, doDiabetes=0; end
+if nargin<2, res=0.01; end
+if nargin<3, modelName='lipolysis'; end
+
+if ~doDiabetes
+    baseFolder = './Parameter sets' ;
+elseif  doDiabetes
+    baseFolder = './Parameter sets (with diabetes)' ;
 end
 
-files=dir([baseFolder '/minmax/*.mat']);
-modelName='LipolysisModel';
-[model,data, lb, ub, nParams, expInd, stimulus, dgf] = Init(modelName, doFig56, 1);
+files=dir(sprintf('%s/PPL/*%s*.mat', baseFolder, modelName));
+
+[model,data, lb, ub, nParams, expInd, stimulus, dgf] = Init(modelName, doDiabetes, 0);
+limit  = chi2inv(0.95,dgf);
 
 stimulusHighRes=table();
 ins=log10(unique([data.InVitro.FFA.Ins; data.InVitro.Glycerol.Ins]));
 stimulusHighRes.Ins=[0 10.^(ins(2):res:ins(end)) 0]';
-stimulusHighRes.Iso=[10*ones(height(stimulusHighRes)-1,1); 0];
+stimulusHighRes.Iso=[0.01*ones(height(stimulusHighRes)-1,1); 0]; %10 nM = 0.01 µM
 
-if length(optParam)==length(lb)
-    optParam=[optParam 1-eps];
-end
-bestParam=optParam;
-cost = costfunction(bestParam,model, expInd,  data, stimulus, doFig56, 1);
-fprintf('Total cost: %.2f, chi2: %.2f. Pass: %d\n',cost, chi2inv(0.95,dgf), cost<chi2inv(0.95,dgf))
+load(FindBestParametersFile(baseFolder, 1, [modelName ', opt-eSS']), 'optParam')
 
-allParams=[];
-for i = fliplr(1:length(files))
-    load([files(i).folder '/' files(i).name],'optParam');
-    if length(optParam)==length(lb)
-        optParam=[optParam 1-eps];
-    end
-    allParams(i,:)=optParam;
-end
-allParams=unique(allParams,'rows');
-
-if doFig4
-  disp('Running batch 1/4')
-end
-[DR, DRHSL, DRDiabetes, TS] = SimulateAllParams(bestParam, allParams, model, data, expInd, stimulusHighRes, doFig56);
-
-if doFig4
-  disp('Running batch 2/4')
-  [DR_exclude1] = SimulateAllParams(bestParam, allParams, model, data, expInd, stimulusHighRes,doFig56, 'exclude1');
-  disp('Running batch 3/4')
-  
-  [DR_exclude2] = SimulateAllParams(bestParam, allParams, model, data, expInd, stimulusHighRes,doFig56, 'exclude2');
-  disp('Running batch 4/4')
-  [~, ~, ~, TS_exclude3] = SimulateAllParams(bestParam, allParams, model, data, expInd, stimulusHighRes(1,:),doFig56, 'exclude3');
+if length(optParam)==length(IQMparameters(model))-5
+    optParam=[optParam 0];
 end
 
+cost = costfunction(optParam,model, expInd,  data, stimulus, doDiabetes);
+fprintf('Total cost: %.2f, chi2: %.2f. Pass: %d\n',cost, limit, cost<limit)
+params=[exp(optParam(1:expInd)) optParam(expInd+1:end)];
 
-%% Do the plotting 
-%Setup simulations and data (in vitro) 
-close all
-allInVitroData=struct();
-allInVitroData.Normal=data.InVitro;
-allInVitroData.Diabetes=data.InVitro_diabetes;
+diab=params(end);
+params(end)=[];
 
-% Plot estimation simulation  and data
-if ~doFig4
-  PlotInVivo(data, TS.Gly.Normal, 2,'Glycerol')
-  PlotInVitro(DR, allInVitroData, {'Normal'}, 2)
-end
-if contains(baseFolder, 'Fig2-3') % Plot validation simulation and data
+Best=simulateInVitro(model, params, expInd, diab, stimulusHighRes, 0);
+InVitrotmp.high=Best.Normal;
+InVitrotmp.low=Best.Normal;
 
-  if ~doFig4
-    PlotInVitro(DRHSL, allInVitroData, {'Normal'}, 3)
-    exportgraphics(figure(2),sprintf('./%s/Fig2-Estimation.pdf',baseFolder))
-    exportgraphics(figure(3),sprintf('./%s/Fig3-Validation.pdf',baseFolder))
-  elseif doFig4
-    DR.Normal(:,~ismember(DR.Normal.Properties.VariableNames,{'Ins','Iso', 'Glycerol'}))=[];
-    PlotInVitro(DR, allInVitroData, {'Normal'}, 4,[], 1)
-    PlotInVitro(DR_exclude1, allInVitroData, {'Normal'}, 4,[], 3)
-    PlotInVitro(DR_exclude2, allInVitroData, {'Normal'}, 4,[], 5)
-    
-    PlotInVivo(data, TS.Gly.Normal, 4,'Glycerol', {'Fig3Epi','Fig3EpiPhe'}, 2)
-    PlotInVivo(data, TS_exclude3.Gly.Normal, 4,'Glycerol', {'Fig3Epi','Fig3EpiPhe'}, 4)
-  end
-    
-    
-elseif contains(baseFolder, 'Fig5-6') % Plot diabetes in vitro predictions.
-    exportgraphics(figure(2),sprintf('./%s/FigS1-Estimation.pdf',baseFolder))
- 
-    DRDiabetes.Normal(:,~ismember(DRDiabetes.Normal.Properties.VariableNames,{'Ins','Iso','FFA','HSL'}))=[];
-    DRDiabetes.Diabetes(:,~ismember(DRDiabetes.Diabetes.Properties.VariableNames,{'Ins','Iso','FFA', 'HSL'}))=[];
-    DRDiabetes.Diabetes.HSL=nan(size(DRDiabetes.Diabetes.HSL));
-    PlotInVitro(DRDiabetes, allInVitroData, {'Normal','Diabetes'}, 5)
-    subplot(2,2,2)
-    axsLine=findobj(gca,'type','line');
-    legend([axsLine(8) axsLine(5)], {'non-diabetic','diabetic'}, 'location','best')
-    exportgraphics(figure(5),sprintf('./%s/Fig5-Estimation-new.pdf',baseFolder))
-    
-    for i = 2:size(TS.FFA.Normal,2)
-        maxPred=max(max([TS.FFA.Normal{:,i}; TS.FFA.Diabetes{:,i}]));
-        TS.FFA.Normal{:,i}=TS.FFA.Normal{:,i}./maxPred*100;
-        TS.FFA.Diabetes{:,i}=TS.FFA.Diabetes{:,i}./maxPred*100;
-    end
-    TS.FFA.Diabetes.Properties.VariableNames=strcat(TS.FFA.Diabetes.Properties.VariableNames,'Diab');
-    TS.FFA=[TS.FFA.Normal, TS.FFA.Diabetes(:,2:end)];
-    PlotInVivo(data.InVivo.Fig1.Time, TS.FFA, 6, 'FFA',{'Fig1', 'Fig2Epi', 'Fig1Diab', 'Fig2EpiDiab'})
-    subplot(2,2,1)
-    h=findobj(gca,'Type','line');
-    h(7).YData=nan(size(h(7).YData));
-    subplot(2,2,2)
-    h=findobj(gca,'Type','line');
-    h(7).YData=nan(size(h(7).YData));
-    exportgraphics(figure(6),sprintf('./%s/Fig6-InVivo-FFA.pdf',baseFolder))
-    
-end
+if doDiabetes
+    InVitrotmpD.high=Best.Diabetes;
+    InVitrotmpD.low=Best.Diabetes;
 end
 
-function [DR, DRHSL, DRDiabetes, TS] = SimulateAllParams(optParam, allParams, model, data, expInd, stimulusHighRes, doDiabetes, exclude)
-if nargin < 8, exclude=''; end
-switch exclude
-  case 'exclude1', allParams(:,28)=inf; optParam(28)=inf;
-  case 'exclude2', allParams(:,29)=inf; optParam(29)=inf;
-  case 'exclude3', allParams(:,27)=inf; optParam(27)=inf;
-end
-
-
-params=[exp(optParam(1:expInd)) optParam(expInd+1:end-1)];
-diab=optParam(end);
-
-[DRbest]=simulateDR(model, params, expInd, doDiabetes, diab, stimulusHighRes);
-DRtmp.high=DRbest.Normal;
-DRtmp.low=DRbest.Normal;
-if ~doDiabetes
-  DRbest.Diabetes=DRbest.Normal; 
-end
-
-DRbest.Diabetes{:,3:end}=nan;
-DRtmpD.high=DRbest.Diabetes;
-DRtmpD.low=DRbest.Diabetes;
-
-[TSBest] = SimulateInVivo(params, model, data.InVivo);
+TSBest = SimulateInVivo(params, model, data.InVivo, 0, 0);
+TSBest.FFA{:,2:end}=TSBest.FFA{:,2:end}./TSBest.FFA{1,2:end}; %ta  bort?
 TStmp.Gly.low=TSBest.Gly;
 TStmp.Gly.high=TSBest.Gly;
 TStmp.FFA.low=TSBest.FFA;
@@ -152,55 +58,144 @@ TStmpD.Gly.high=TSBestD.Gly;
 TStmpD.FFA.low=TSBestD.FFA;
 TStmpD.FFA.high=TSBestD.FFA;
 
-for i = 1:size(allParams,1)
-    optParam=allParams(i,:);
-    
-    params=[exp(optParam(1:expInd)) optParam(expInd+1:end-1)];
-    diab=optParam(end);
-    Tmp=simulateDR(model, params, expInd, doDiabetes,  diab, stimulusHighRes);
-    DRtmp.low{:,:}=min(DRtmp.low{:,:}, Tmp.Normal{:,:});
-    DRtmp.high{:,:}=max(DRtmp.high{:,:}, Tmp.Normal{:,:});
-    if doDiabetes
-        DRtmpD.low{:,:}=min(DRtmpD.low{:,:}, Tmp.Diabetes{:,:});
-        DRtmpD.high{:,:}=max(DRtmpD.high{:,:}, Tmp.Diabetes{:,:});
-        
-        TmpD = SimulateInVivo(params, model, data.InVivo, diab);
-        TStmpD.Gly.low{:,:}=min(TStmpD.Gly.low{:,:}, TmpD.Gly{:,:});
-        TStmpD.Gly.high{:,:}=max(TStmpD.Gly.high{:,:}, TmpD.Gly{:,:});
-        TStmpD.FFA.low{:,:}=min(TStmpD.FFA.low{:,:}, TmpD.FFA{:,:});
-        TStmpD.FFA.high{:,:}=max(TStmpD.FFA.high{:,:}, TmpD.FFA{:,:});
+optParams=[];
+for i = fliplr(1:length(files))
+    load([files(i).folder '/' files(i).name],'optParam');
+    if length(optParam)==length(lb)
+        optParam=[optParam 0];
     end
-    
-    Tmp = SimulateInVivo(params, model, data.InVivo);
-    TStmp.Gly.low{:,:}=min(TStmp.Gly.low{:,:}, Tmp.Gly{:,:});
-    TStmp.Gly.high{:,:}=max(TStmp.Gly.high{:,:}, Tmp.Gly{:,:});
-    TStmp.FFA.low{:,:}=min(TStmp.FFA.low{:,:}, Tmp.FFA{:,:});
-    TStmp.FFA.high{:,:}=max(TStmp.FFA.high{:,:}, Tmp.FFA{:,:});
-    
-    fprintf('%i of %i \n',i,size(allParams,1))
+    optParams(i,:)=optParam;
+end
+optParams=unique(optParams,'rows');
+if size(optParams,1)>0
+    disp('Simulating parameter sets')
+end
+for i = 1:size(optParams,1)
+    optParam=optParams(i,:);
+    cost = costfunction(optParam,model, expInd,  data, stimulus, doDiabetes);
+    if cost<limit+0.1
+        params=[exp(optParam(1:expInd)) optParam(expInd+1:end-1)];
+        diab=optParam(end);
+        
+        [Tmp]=simulateInVitro(model, params, expInd, diab, stimulusHighRes);
+        InVitrotmp.low{:,:}=min(InVitrotmp.low{:,:}, Tmp.Normal{:,:});
+        InVitrotmp.high{:,:}=max(InVitrotmp.high{:,:}, Tmp.Normal{:,:});
+        
+        TmpTS = SimulateInVivo(params, model, data.InVivo, 0, 0);
+        if isfield(Tmp,'Diabetes')
+            InVitrotmpD.low{:,:}=min(InVitrotmpD.low{:,:}, Tmp.Diabetes{:,:});
+            InVitrotmpD.high{:,:}=max(InVitrotmpD.high{:,:}, Tmp.Diabetes{:,:});
+            
+            TmpTSD = SimulateInVivo(params, model, data.InVivo, diab, 0);
+            TmpTSD.FFA{:,2:end}=TmpTSD.FFA{:,2:end}./TmpTS.FFA{1,2:end};
+            
+            TStmpD.Gly.low{:,:}=min(TStmpD.Gly.low{:,:}, TmpTSD.Gly{:,:});
+            TStmpD.Gly.high{:,:}=max(TStmpD.Gly.high{:,:}, TmpTSD.Gly{:,:});
+            TStmpD.FFA.low{:,:}=min(TStmpD.FFA.low{:,:}, TmpTSD.FFA{:,:});
+            TStmpD.FFA.high{:,:}=max(TStmpD.FFA.high{:,:}, TmpTSD.FFA{:,:});
+        end
+        TmpTS.FFA{:,2:end}=TmpTS.FFA{:,2:end}./TmpTS.FFA{1,2:end};
+        TStmp.Gly.low{:,:}=min(TStmp.Gly.low{:,:}, TmpTS.Gly{:,:});
+        TStmp.Gly.high{:,:}=max(TStmp.Gly.high{:,:}, TmpTS.Gly{:,:});
+        TStmp.FFA.low{:,:}=min(TStmp.FFA.low{:,:}, TmpTS.FFA{:,:});
+        TStmp.FFA.high{:,:}=max(TStmp.FFA.high{:,:}, TmpTS.FFA{:,:});
+        
+    else
+        disp("Not a valid solution")
+    end
+    if i==1
+        fprintf('%i of %i \n|',i,size(optParams,1))
+    elseif mod(i,25)==0
+        fprintf(' %i of %i \n',i,size(optParams,1))
+    else
+        fprintf('|')
+    end
 end
 
+%% Do the plotting
+%Setup simulations and data (in vitro)
+allInVitroData=struct();
+allInVitroData.Normal=data.InVitro;
 
-DR.Normal=ConcatenateTableColums(DRbest.Normal, DRtmp.low(:,3:end));
-DR.Normal=ConcatenateTableColums(DR.Normal, DRtmp.high(:,3:end));
-DR.Diabetes=ConcatenateTableColums(DRbest.Diabetes, DRtmpD.low(:,3:end));
-DR.Diabetes=ConcatenateTableColums(DR.Diabetes, DRtmpD.high(:,3:end));
-DRHSL=DR;
-DRHSL.Normal(:,~ismember(DRHSL.Normal.Properties.VariableNames,{'Ins','Iso','HSL'}))=[];
-DRDiabetes=DR;
+InVitro.Normal=ConcatenateTableColums(Best.Normal, InVitrotmp.low(:,3:end));
+InVitro.Normal=ConcatenateTableColums(InVitro.Normal, InVitrotmp.high(:,3:end));
+InVitroHSL=InVitro;
+
+if doDiabetes
+    allInVitroData.Diabetes=data.InVitro_diabetes;
+    
+    InVitro.Diabetes=ConcatenateTableColums(Best.Diabetes, InVitrotmpD.low(:,3:end));
+    InVitro.Diabetes=ConcatenateTableColums(InVitro.Diabetes, InVitrotmpD.high(:,3:end));
+    InVitroDiabetes=InVitro;
+    
+    TS.FFA.Diabetes=ConcatenateTableColums(TSBestD.FFA, TStmpD.FFA.low(:,2:end));
+    TS.FFA.Diabetes=ConcatenateTableColums(TS.FFA.Diabetes, TStmpD.FFA.high(:,2:end));
+end
 
 %Setup simulations and data (in vivo)
 TS.Gly.Normal=ConcatenateTableColums(TSBest.Gly, TStmp.Gly.low(:,2:end));
 TS.Gly.Normal=ConcatenateTableColums(TS.Gly.Normal, TStmp.Gly.high(:,2:end));
 
-if isempty(exclude)
-  TS.FFA.Normal=ConcatenateTableColums(TSBest.FFA, TStmp.FFA.low(:,2:end));
-  TS.FFA.Normal=ConcatenateTableColums(TS.FFA.Normal, TStmp.FFA.high(:,2:end));
-  
-  TS.FFA.Diabetes=ConcatenateTableColums(TSBestD.FFA, TStmpD.FFA.low(:,2:end));
-  TS.FFA.Diabetes=ConcatenateTableColums(TS.FFA.Diabetes, TStmpD.FFA.high(:,2:end));
-  DR.Normal(:,~ismember(DR.Normal.Properties.VariableNames,{'Ins','Iso','FFA', 'Glycerol','PKB'}))=[];
-else
-  DR.Normal(:,~ismember(DR.Normal.Properties.VariableNames,{'Ins','Iso', 'Glycerol'}))=[];
+TS.FFA.Normal=ConcatenateTableColums(TSBest.FFA, TStmp.FFA.low(:,2:end));
+TS.FFA.Normal=ConcatenateTableColums(TS.FFA.Normal, TStmp.FFA.high(:,2:end));
+
+InVitro.Normal(:,~ismember(InVitro.Normal.Properties.VariableNames,{'Ins','Iso','FFA', 'Glycerol','PKB'}))=[];
+Best.Normal(:,~ismember(Best.Normal.Properties.VariableNames,{'Ins','Iso','FFA', 'Glycerol','PKB'}))=[];
+
+%% Plot
+if contains(modelName,'_noIns')
+    PlotInVivo(data, TS.Gly.Normal, 52,'Glycerol')
+    PlotInVitro(InVitro, allInVitroData, {'Normal'}, 52)
+elseif ~contains(baseFolder, 'with diabetes') % Plot validation simulation and data
+    
+    PlotInVivo(data, TS.Gly.Normal, 51,'Glycerol')
+    PlotInVitro(InVitro, allInVitroData, {'Normal'}, 51)
+    
+    data.InVivo.Fig3Epi=[];
+    TS.Gly.Normal.Fig3Epi=[];
+    PlotInVivo(data, TS.Gly.Normal, 3,'Glycerol')
+    PlotInVitro(InVitro, allInVitroData, {'Normal'}, 3)
+    
+    InVitroHSL.Normal(:,~ismember(InVitroHSL.Normal.Properties.VariableNames,{'Ins','Iso','HSL'}))=[];
+    PlotInVitro(InVitroHSL, allInVitroData, {'Normal'}, 4)
+elseif contains(baseFolder, 'with diabetes') % Plot diabetes in vitro predictions.
+    
+    PlotInVivo(data, TS.Gly.Normal, 53,'Glycerol')
+    PlotInVitro(InVitro, allInVitroData, {'Normal'}, 53)
+    
+    data.InVivo.Fig3Epi=[];
+    TS.Gly.Normal.Fig3Epi=[];
+    PlotInVivo(data, TS.Gly.Normal, 54,'Glycerol')
+    PlotInVitro(InVitro, allInVitroData, {'Normal'}, 54)
+    
+    
+    InVitroDiabetes.Normal(:,~ismember(InVitroDiabetes.Normal.Properties.VariableNames,{'Ins','Iso','FFA', 'Glycerol', 'HSL', 'Reesterification'}))=[];
+    InVitroDiabetes.Diabetes(:,~ismember(InVitroDiabetes.Diabetes.Properties.VariableNames,{'Ins','Iso','FFA', 'Glycerol', 'HSL', 'Reesterification'}))=[];
+    
+    allInVitroData.Normal.cAMP=[];
+    PlotInVitro(InVitroDiabetes, allInVitroData, {'Normal','Diabetes'}, 6)
+    
+    %%
+    if height(stimulusHighRes)<800
+        fprintf('\n\nNote: running with a low resolution might yield slightly incorrect bounds for the reesterification\n')
+    end
+    reestMax = max(max(InVitroDiabetes.Normal.Reesterification(1:end-1,:)));
+    reestMin = min(min(InVitroDiabetes.Normal.Reesterification(1:end-1,:)));
+    fprintf('Normal reesterification (iso+ins stimulated) interval: %.2f - %.2f\n',reestMin, reestMax)
+    
+    reestDiabMax = max(max(InVitroDiabetes.Diabetes.Reesterification(1:end-1,:)));
+    reestDiabMin = min(min(InVitroDiabetes.Diabetes.Reesterification(1:end-1,:)));
+    fprintf('Diabetic reesterification (iso+ins stimulated) interval: %.2f - %.2f\n\n', reestDiabMin, reestDiabMax)
+    
+    %%
+    TS.FFA.Diabetes.Properties.VariableNames=strcat(TS.FFA.Diabetes.Properties.VariableNames,'Diab');
+    TS.FFA=[TS.FFA.Normal, TS.FFA.Diabetes(:,2:end)];
+    PlotInVivo(data.InVivo.Fig1.Time, TS.FFA, 7, 'FFA',{'Fig1', 'Fig2Epi', 'Fig1Diab', 'Fig2EpiDiab'})
+    subplot(2,2,1)
+    ylabel({'Released FA', 'fold over non-diabetic basal'})
+    subplot(2,2,2)
+    ylabel({'Released FA', 'fold over non-diabetic basal'})
+    
 end
 end
+

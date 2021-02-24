@@ -1,8 +1,8 @@
 ********** MODEL NAME
-LipolysisModel
-
+lipolysis
 ********** MODEL NOTES
 NOTE: This is just a copy of the lipolysis model. 
+
 ********** MODEL STATES
 d/dt(BETA) = -v4a + v4b
 d/dt(BETAa) = v4a - v4b 
@@ -21,19 +21,19 @@ d/dt(Gly) = v8a - v8b
 d/dt(FFA) = 3*v8a - v8c
 
 BETA(0) = 80
-BETAa(0) = 5
+BETAa(0) = 20
 ALPHA(0) = 80
 ALPHAa(0) = 20
-AC(0) = 75
-ACa(0) = 25
-PKB(0) = 20
-PKBp(0) = 80
-PDE3B(0) = 20
-PDE3Ba(0) = 80
-cAMP(0) = 1
-HSL(0) = 85
-HSLp(0) = 15
-Gly(0) = 220
+AC(0) = 80
+ACa(0) = 20
+PKB(0) = 80
+PKBp(0) = 20
+PDE3B(0) = 80
+PDE3Ba(0) = 20
+cAMP(0) = 0
+HSL(0) = 80
+HSLp(0) = 20
+Gly(0) = 0
 FFA(0)= 0
 ********** MODEL PARAMETERS
 kdrift=0
@@ -43,6 +43,7 @@ k4b = 0.12
 
 k3b = 1e-5
 k3a = 0.0004
+k3a2 = 1
 k5a = 0.0025
 k5b = 4.6
 
@@ -52,15 +53,16 @@ k1b=1
 
 k2a = 2.1
 k2b = 7.3
-k6basal = 3.7
 k6a = 0.2
 k6b = 0.05
-k6b2 = 0.02
 k7a = 0.3
 k7b =  0.07
 k8a = 20
 k8c = 1 % reesterification parameter
 k8b = 1e-3
+
+phe_effect = 1
+
 isoscale = 10
 
 min3=0
@@ -74,7 +76,7 @@ n3=8
 n1=8
 n2=1
 
-diab = 1
+diab = 0
 
 phe = 0
 adr = 0
@@ -83,36 +85,34 @@ insulin = 37.2
 
 
 ********** MODEL VARIABLES
-y_alpha=ALPHAa
-y_PDE3Ba=PDE3Ba
 y_PKB=PKBp
-y_cAMP=cAMP
-y_Glycerol=Gly-kdrift*time
 y_HSL=HSLp
+y_Glycerol=Gly-kdrift*time
 y_FFA=FFA-kdrift*time
 
-IR_3 = 100+(min3-100)/(1+(insulin/(10^EC503))^n3);
-IR_1 = 100+(min1-100)/(1+(insulin/(10^EC501))^n1);
-IR_2 = 100+(min2-100)/(1+(insulin/(10^EC502))^n2);
+Ins_3 = 100+(min3-100)/(1+(insulin/(10^EC503))^n3);
+Ins_1 = 100+(min1-100)/(1+(insulin/(10^EC501))^n1);
+Ins_2 = 100+(min2-100)/(1+(insulin/(10^EC502))^n2);
 
 ********** MODEL REACTIONS
-v1a = (k1a*cAMP+k1a2*IR_1)*PKB
-v1b = k1b*PKBp
-v2a = k2a*PKBp*PDE3B
-v2b = k2b * PDE3Ba*IR_2
-v3a = (k3a*IR_3)*adr*(1-phe)*ALPHA
-v3b = k3b * ALPHAa
 v4a = (k4a * (iso*isoscale + adr) + k4a2) * BETA
 v4b = k4b * BETAa
-v5a = k5a * (BETAa) * AC  
-v5b = k5b * (ALPHAa) * ACa 
-v6a = k6basal + k6a*ACa
-v6b = (k6b*PDE3Ba + k6b2)*cAMP
+v3a = (k3a*Ins_3*adr+k3a2)*(1-phe_effect*phe)*ALPHA
+v3b = k3b * ALPHAa
+
+v1a = (k1a*cAMP+k1a2*Ins_1)*PKB
+v1b = k1b*PKBp
+v2a = k2a*PKBp*PDE3B
+v2b = k2b * PDE3Ba*Ins_2
+v5a = k5a * BETAa * AC  
+v5b = k5b * ALPHAa * ACa 
+v6a = k6a*ACa
+v6b = k6b*PDE3Ba*cAMP
 v7a = k7a*cAMP*HSL
 v7b = k7b * HSLp
 v8a = k8a * HSLp
 v8b = k8b * Gly
-v8c = (k8b+k8c*diab) * FFA 
+v8c = (k8b+k8c*(1-diab)) * FFA 
 ********** MODEL FUNCTIONS
 
 ********** MODEL EVENTS
