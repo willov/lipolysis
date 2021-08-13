@@ -2,6 +2,7 @@ function [model,data, lb, ub, nParams,expInd, stimulus, dgf, opts] = Init(modelN
 if nargin<1; modelName='lipolysis'; end
 if nargin<2, doDiabetes=0; end
 if nargin<3, doMEX=0; end
+format short e
 
 if doMEX
     disp('Compiling the model, please wait')
