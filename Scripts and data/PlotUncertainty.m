@@ -21,12 +21,21 @@ ins=log10(unique([data.InVitro.FFA.Ins; data.InVitro.Glycerol.Ins]));
 stimulusHighRes.Ins=[0 10.^(ins(2):res:ins(end)) 0]';
 stimulusHighRes.Iso=[0.01*ones(height(stimulusHighRes)-1,1); 0]; %10 nM = 0.01 µM
 
-load(FindBestParametersFile(baseFolder, 1, [modelName ', opt-eSS']), 'optParam')
-
+%% Load and simulate the best HSL parameters
+load(FindBestParametersFile(baseFolder, 1, 'HSL, cost, min'), 'optParam')
 if length(optParam)==length(IQMparameters(model))-5
     optParam=[optParam 0];
 end
+HSLParams=[exp(optParam(1:expInd)) optParam(expInd+1:end)];
+diab=HSLParams(end);
+HSLParams(end)=[];
+BestHSL=simulateInVitro(model, HSLParams, expInd, diab, stimulusHighRes, 0);
 
+%% Load and simulate the best parameters in total
+load(FindBestParametersFile(baseFolder, 1, [modelName ', opt-eSS']), 'optParam')
+if length(optParam)==length(IQMparameters(model))-5
+    optParam=[optParam 0];
+end
 cost = costfunction(optParam,model, expInd,  data, stimulus, doDiabetes);
 fprintf('Total cost: %.2f, chi2: %.2f. Pass: %d\n',cost, limit, cost<limit)
 params=[exp(optParam(1:expInd)) optParam(expInd+1:end)];
@@ -35,6 +44,7 @@ diab=params(end);
 params(end)=[];
 
 Best=simulateInVitro(model, params, expInd, diab, stimulusHighRes, 0);
+Best.Normal.HSL = BestHSL.Normal.HSL;
 InVitrotmp.high=Best.Normal;
 InVitrotmp.low=Best.Normal;
 
@@ -156,8 +166,10 @@ elseif ~contains(baseFolder, 'with diabetes') % Plot validation simulation and d
     PlotInVivo(data, TS.Gly.Normal, 3,'Glycerol')
     PlotInVitro(InVitro, allInVitroData, {'Normal'}, 3)
     
+    BestHSL.Normal(:,~ismember(BestHSL.Normal.Properties.VariableNames,{'Ins','Iso','HSL'}))=[];
+    PlotInVitro(BestHSL, allInVitroData, {'Normal'}, 4)
     InVitroHSL.Normal(:,~ismember(InVitroHSL.Normal.Properties.VariableNames,{'Ins','Iso','HSL'}))=[];
-    PlotInVitro(InVitroHSL, allInVitroData, {'Normal'}, 4)
+    PlotInVitro(InVitroHSL, allInVitroData, {'Normal'}, 54)
 elseif contains(baseFolder, 'with diabetes') % Plot diabetes in vitro predictions.
     
     PlotInVivo(data, TS.Gly.Normal, 53,'Glycerol')
