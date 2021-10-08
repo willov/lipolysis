@@ -19,7 +19,7 @@ end
 assert(exist('./Model equations.txt','file') && exist('./Scripts and data','dir'),'Error! Likely running from the wrong directory.')
 currentDir = pwd;
 
-try
+% try
     close all
     run('./Scripts and data/Setup.m')
     fprintf('\n\nWhich figures do you want to plot?\n')
@@ -28,10 +28,11 @@ try
     disp('3. Effects of removing insulin actions (Fig. 5)')
     disp('4. All figure after diabetes was introduced (Fig. 6, 7, S3, S4)')
     disp('5. Best agreement when insulin action 3 was removed (Fig. S2)')
+    disp('6. Figures related to using the alternative epi data set (Doc. SX)')
     disp('Note that figures numbered 5X corresponds to supplementary figures SX.')
-    choice = input('\nChoice (1, 2, 3, 4 or 5): ');
+    choice = input('\nChoice (1, 2, 3, 4, 5  or 6): ');
     
-    if ~ismember(choice, [1,3,5])
+    if ~ismember(choice, [1,3,5, 6])
         fprintf('\n\nWhat resolution do you want?\n')
         disp('High resolution (as in the papers) or low resolution (faster)?')
         disp('1. High resolution')
@@ -41,11 +42,11 @@ try
         choice2 = 1;
     end
     fprintf('\n\n')
-    if ~ismember(choice,[1 2 3 4 5]) && ~ismember(choice2,[1 2])
+    if ~ismember(choice,[1 2 3 4 5 6]) && ~ismember(choice2,[1 2])
         error('Invalid choice of plots. Invalid choice of resolution')
-    elseif ~ismember(choice,[1 2 3 4 5]) && ismember(choice2,[1 2])
+    elseif ~ismember(choice,[1 2 3 4 5 6]) && ismember(choice2,[1 2])
         error('Invalid choice of plots. Valid choice of resolution')
-    elseif ismember(choice,[1 2 3 4 5]) && ~ismember(choice2,[1 2])
+    elseif ismember(choice,[1 2 3 4 5 6]) && ~ismember(choice2,[1 2])
         error('Valid choice of plots. Invalid choice of resolution')
     elseif choice2==1
         res=0.01;
@@ -66,12 +67,15 @@ try
         PlotUncertainty(1, res)
     elseif choice == 5
         PlotUncertainty(0,res, 'lipolysis_noIns3')
+    elseif choice == 6
+        PlotPL('lipolysis', 0)
+        PlotUncertainty(0,res, 'lipolysis', 0)
     else
         disp('Invalid choice if plots')
     end
     cd(currentDir)
-catch err
-    disp('Something went wrong.')
-    cd(currentDir)
-    rethrow(err)
-end
+% catch err
+%     disp('Something went wrong.')
+%     cd(currentDir)
+%     rethrow(err)
+% end

@@ -1,4 +1,4 @@
-function [cost] = costfunction(param_in,model, expInd, data, stimulus, doDiabetes)
+function [cost] = costfunction(param_in,model, expInd, data, stimulus, doDiabetes, useFig2EpiData)
 
 if (nargin < 6), doDiabetes = 0; end
 
@@ -12,7 +12,7 @@ else
     diabetes=0.66; % not used
 end
 
-costInVivo = CostInVivo(params, model, data.InVivo, 0);%% InVivo data
+costInVivo = CostInVivo(params, model, data.InVivo, 0, useFig2EpiData );%% InVivo data
 costInVitro = CostInVitro(model, params, expInd, stimulus, data,diabetes, doDiabetes);%% InVitro data
 
 cost=costInVivo+costInVitro;

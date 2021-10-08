@@ -1,11 +1,14 @@
-function [] = PlotUncertainty(doDiabetes,res, modelName)
+function [] = PlotUncertainty(doDiabetes,res, modelName, useFig2EpiData)
 clear mex
 
 if nargin<1, doDiabetes=0; end
 if nargin<2, res=0.01; end
 if nargin<3, modelName='lipolysis'; end
+if nargin<4, useFig2EpiData=1; end
 
-if ~doDiabetes
+if ~useFig2EpiData
+    baseFolder = './Parameter sets (with alternative epi data)' ;
+elseif ~doDiabetes
     baseFolder = './Parameter sets' ;
 elseif  doDiabetes
     baseFolder = './Parameter sets (with diabetes)' ;
@@ -21,22 +24,11 @@ ins=log10(unique([data.InVitro.FFA.Ins; data.InVitro.Glycerol.Ins]));
 stimulusHighRes.Ins=[0 10.^(ins(2):res:ins(end)) 0]';
 stimulusHighRes.Iso=[0.01*ones(height(stimulusHighRes)-1,1); 0]; %10 nM = 0.01 µM
 
-%% Load and simulate the best HSL parameters
-load(FindBestParametersFile(baseFolder, 1, 'HSL, cost, min'), 'optParam')
-if length(optParam)==length(IQMparameters(model))-5
-    optParam=[optParam 0];
-end
-HSLParams=[exp(optParam(1:expInd)) optParam(expInd+1:end)];
-diab=HSLParams(end);
-HSLParams(end)=[];
-BestHSL=simulateInVitro(model, HSLParams, expInd, diab, stimulusHighRes, 0);
-
-%% Load and simulate the best parameters in total
 load(FindBestParametersFile(baseFolder, 1, [modelName ', opt-eSS']), 'optParam')
 if length(optParam)==length(IQMparameters(model))-5
     optParam=[optParam 0];
 end
-cost = costfunction(optParam,model, expInd,  data, stimulus, doDiabetes);
+cost = costfunction(optParam,model, expInd,  data, stimulus, doDiabetes, useFig2EpiData);
 fprintf('Total cost: %.2f, chi2: %.2f. Pass: %d\n',cost, limit, cost<limit)
 params=[exp(optParam(1:expInd)) optParam(expInd+1:end)];
 
@@ -44,7 +36,18 @@ diab=params(end);
 params(end)=[];
 
 Best=simulateInVitro(model, params, expInd, diab, stimulusHighRes, 0);
-Best.Normal.HSL = BestHSL.Normal.HSL;
+if strcmp(modelName, 'lipolysis') && ~doDiabetes
+    load(FindBestParametersFile(baseFolder, 1, 'HSL, cost, min'), 'optParam')
+    if length(optParam)==length(IQMparameters(model))-5
+        optParam=[optParam 0];
+    end
+    HSLParams=[exp(optParam(1:expInd)) optParam(expInd+1:end)];
+    diab=HSLParams(end);
+    HSLParams(end)=[];
+    BestHSL=simulateInVitro(model, HSLParams, expInd, diab, stimulusHighRes, 0);
+    Best.Normal.HSL = BestHSL.Normal.HSL;
+end
+
 InVitrotmp.high=Best.Normal;
 InVitrotmp.low=Best.Normal;
 
@@ -82,7 +85,7 @@ if size(optParams,1)>0
 end
 for i = 1:size(optParams,1)
     optParam=optParams(i,:);
-    cost = costfunction(optParam,model, expInd,  data, stimulus, doDiabetes);
+    cost = costfunction(optParam,model, expInd,  data, stimulus, doDiabetes, useFig2EpiData);
     if cost<limit+0.1
         params=[exp(optParam(1:expInd)) optParam(expInd+1:end-1)];
         diab=optParam(end);
@@ -121,6 +124,7 @@ for i = 1:size(optParams,1)
         fprintf('|')
     end
 end
+fprintf('\n')
 
 %% Do the plotting
 %Setup simulations and data (in vitro)
@@ -166,17 +170,23 @@ elseif ~contains(baseFolder, 'with diabetes') % Plot validation simulation and d
     PlotInVivo(data, TS.Gly.Normal, 3,'Glycerol')
     PlotInVitro(InVitro, allInVitroData, {'Normal'}, 3)
     
-    BestHSL.Normal(:,~ismember(BestHSL.Normal.Properties.VariableNames,{'Ins','Iso','HSL'}))=[];
-    PlotInVitro(BestHSL, allInVitroData, {'Normal'}, 4)
     InVitroHSL.Normal(:,~ismember(InVitroHSL.Normal.Properties.VariableNames,{'Ins','Iso','HSL'}))=[];
-    PlotInVitro(InVitroHSL, allInVitroData, {'Normal'}, 54)
+    if useFig2EpiData
+        PlotInVitro(InVitroHSL, allInVitroData, {'Normal'}, 54)
+    end
+    InVitroHSL.Normal.HSL(:,2:end)=[];
+    PlotInVitro(InVitroHSL, allInVitroData, {'Normal'}, 4)
 elseif contains(baseFolder, 'with diabetes') % Plot diabetes in vitro predictions.
     
     PlotInVivo(data, TS.Gly.Normal, 53,'Glycerol')
     PlotInVitro(InVitro, allInVitroData, {'Normal'}, 53)
-    
-    data.InVivo.Fig3Epi=[];
-    TS.Gly.Normal.Fig3Epi=[];
+    if useFig2EpiData
+        data.InVivo.Fig3Epi=[];
+        TS.Gly.Normal.Fig3Epi=[];
+    else
+        data.InVivo.Fig2Epi=[];
+        TS.Gly.Normal.Fig2Epi=[];
+    end
     PlotInVivo(data, TS.Gly.Normal, 54,'Glycerol')
     PlotInVitro(InVitro, allInVitroData, {'Normal'}, 54)
     

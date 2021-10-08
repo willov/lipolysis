@@ -1,9 +1,14 @@
-function [] = PlotPL(modelName)
+function [] = PlotPL(modelName, useFig2EpiData)
 
 
 if nargin<1; modelName='lipolysis'; end
-baseFolder='./Parameter sets';
+if nargin<2; useFig2EpiData=1; end
 
+    if useFig2EpiData
+        baseFolder='./Parameter sets';
+    else
+        baseFolder='./Parameter sets (with alternative epi data)';
+    end
 folder= 'Parameter sets/PL/';
 
 [model, data, lb, ub, nParams, expInd, stimulus, dgf] = Init(modelName, 0);
@@ -29,7 +34,10 @@ maxP(27:29) = 10.^maxP(27:29);
 minP = min(optParams)';
 minP=[exp(minP(1:expInd)); minP(expInd+1:end)];
 minP(27:29) = 10.^minP(27:29);
-params=table(pNames(1:32),minP,maxP,'VariableNames',{'Parameters', 'Min','Max'});
+lowerThreshold =[exp(rejectlb(1:expInd)) rejectlb(expInd+1:end)]';
+upperThreshold =[exp(rejectub(1:expInd)) rejectub(expInd+1:end)]';
+
+params=table(pNames(1:32),lowerThreshold, upperThreshold, minP,maxP,'VariableNames',{'Parameters', 'Lower_threshold', 'Upper_threshold','Min','Max'});
 disp('Boundry for parameter uncertainty, presented in Table S1.')
 disp(params)
 %%

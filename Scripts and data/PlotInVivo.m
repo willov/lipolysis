@@ -14,11 +14,12 @@ if posOverride ~=0
     m=3; n=2; pos=[nan, nan, nan, posOverride];
 elseif any(contains(vars, 'Diab'))
     m=2; n=2; pos=[1 2];
-elseif any(strcmp(vars, 'Fig3Epi'))
+elseif sum(ismember(vars, {'Fig2Epi', 'Fig3Epi'}))==2
     m=3; n=2; pos=[1 3 3 5 5];
-else
+elseif any(strcmp(vars, 'Fig2Epi')) 
     m=4; n=2; pos=[1 3 5 nan 7];
-    
+elseif any(strcmp(vars, 'Fig3Epi')) 
+    m=4; n=2; pos=[1 nan 5 3 7];
 end
 
 for i=1:length(vars)
