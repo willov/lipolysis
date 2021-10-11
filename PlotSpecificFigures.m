@@ -19,7 +19,7 @@ end
 assert(exist('./Model equations.txt','file') && exist('./Scripts and data','dir'),'Error! Likely running from the wrong directory.')
 currentDir = pwd;
 
-% try
+try
     close all
     run('./Scripts and data/Setup.m')
     fprintf('\n\nWhich figures do you want to plot?\n')
@@ -74,8 +74,8 @@ currentDir = pwd;
         disp('Invalid choice if plots')
     end
     cd(currentDir)
-% catch err
-%     disp('Something went wrong.')
-%     cd(currentDir)
-%     rethrow(err)
-% end
+catch err
+    disp('Something went wrong.')
+    cd(currentDir)
+    rethrow(err)
+end

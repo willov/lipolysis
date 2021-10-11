@@ -9,7 +9,6 @@ if nargin<2; useFig2EpiData=1; end
     else
         baseFolder='./Parameter sets (with alternative epi data)';
     end
-folder= 'Parameter sets/PL/';
 
 [model, data, lb, ub, nParams, expInd, stimulus, dgf] = Init(modelName, 0);
 pNames = IQMparameters(model);
@@ -20,7 +19,7 @@ for i = 1:nParams
     rejectub(i) = NonIdentifiabilityBound(pNames{i}, ub(i), 'max');
 end
 
-files=dir(sprintf('%s/**/*%s*.mat', folder, modelName));
+files=dir(sprintf('%s/PL/**/*%s*.mat', baseFolder, modelName));
 optParams=[];
 for i = fliplr(1:length(files))
     load([files(i).folder '/' files(i).name],'optParam');
