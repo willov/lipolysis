@@ -12,6 +12,7 @@ if nargin<2; useFig2EpiData=1; end
 
 [model, data, lb, ub, nParams, expInd, stimulus, dgf] = Init(modelName, 0);
 pNames = IQMparameters(model);
+pNames(nParams+1:end)=[];
 rejectlb = lb;
 rejectub = ub;
 for i = 1:nParams
@@ -26,6 +27,8 @@ for i = fliplr(1:length(files))
     optParams(i,:)=optParam;
 end
 optParams=unique(optParams,'rows');
+
+sortIdx = [1 10:14 6 7 5 2:4 8 9 15:19 21 20 22 23 25 26 24 28 29 27 31 32 30];
 %% Print bounds
 maxP = max(optParams)';
 maxP=[exp(maxP(1:expInd)); maxP(expInd+1:end)];
@@ -36,7 +39,19 @@ minP(27:29) = 10.^minP(27:29);
 lowerThreshold =[exp(rejectlb(1:expInd)) rejectlb(expInd+1:end)]';
 upperThreshold =[exp(rejectub(1:expInd)) rejectub(expInd+1:end)]';
 
-params=table(pNames(1:32),lowerThreshold, upperThreshold, minP,maxP,'VariableNames',{'Parameters', 'Lower_threshold', 'Upper_threshold','Min','Max'});
+pNames=pNames(sortIdx);
+lowerThreshold = lowerThreshold(sortIdx);
+upperThreshold =  upperThreshold(sortIdx);
+minP = minP(sortIdx);
+maxP = maxP(sortIdx);
+optParams = optParams(:,sortIdx);
+rejectub = rejectub(sortIdx);
+rejectlb = rejectlb(sortIdx);
+lb = lb(sortIdx);
+ub = ub(sortIdx);
+
+params=table(pNames,lowerThreshold, upperThreshold, minP,maxP,'VariableNames',{'Parameters', 'Lower_threshold', 'Upper_threshold','Min','Max'});
+params = params(sortIdx,:); %Sort the 
 disp('Boundry for parameter uncertainty, presented in Table S1.')
 disp(params)
 %%
@@ -57,7 +72,7 @@ bound = (maxx-minx)/2;
 h = errorbar(1:size(x,2),center, bound,'.','linewidth',3, 'color', 'k');
 h.CapSize = 20;
 xticks(1:size(x,2))
-xticklabels(IQMparameters(model))
+xticklabels(pNames)
 set(gca,'TickLabelInterpreter','none', 'fontsize',30)
 xtickangle(45)
 ylim([-1.05 1.05])
@@ -76,7 +91,7 @@ end
 %% Plot the best solution
 load(FindBestParametersFile(baseFolder, 1, [modelName ', opt-eSS']), 'optParam')
 x = 2*(optParam-rejectlb) ./ (rejectub-rejectlb)-1;
-plot(x,'x','MarkerSize',15, 'color',[0 0.4470 0.7410]);
+plot(x(sortIdx),'x','MarkerSize',15, 'color',[0 0.4470 0.7410]);
 
 %% Set size and save figure
 set(gcf, 'outerposition',[0 0 2560 1440], 'PaperType','a4')
