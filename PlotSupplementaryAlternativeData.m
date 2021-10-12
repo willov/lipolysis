@@ -18,6 +18,7 @@ try
     cd('Scripts and data')
     PlotPL('lipolysis', 0)
     PlotUncertainty(0,res, 'lipolysis', 0)
+    PlotInsulinActions(0)
     cd(currentDir)
 catch err
     disp('Something went wrong.')

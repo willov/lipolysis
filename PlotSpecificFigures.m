@@ -70,6 +70,7 @@ try
     elseif choice == 6
         PlotPL('lipolysis', 0)
         PlotUncertainty(0,res, 'lipolysis', 0)
+        PlotInsulinActions(0)
     else
         disp('Invalid choice if plots')
     end

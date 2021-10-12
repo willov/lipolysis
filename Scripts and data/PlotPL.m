@@ -51,8 +51,8 @@ lb = lb(sortIdx);
 ub = ub(sortIdx);
 
 params=table(pNames,lowerThreshold, upperThreshold, minP,maxP,'VariableNames',{'Parameters', 'Lower_threshold', 'Upper_threshold','Min','Max'});
-params{27:29,2:3} = 10.^params{27:29,2:3};
-disp('Boundry for parameter uncertainty, presented in Table S1.')
+params{27:29, 2:3} = 10.^params{27:29, 2:3};
+disp('Boundry for parameter uncertainty.')
 disp(params)
 %%
 x = 2*(optParams-rejectlb) ./ (rejectub-rejectlb)-1;

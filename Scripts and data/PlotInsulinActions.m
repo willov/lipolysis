@@ -1,6 +1,12 @@
-function [] = PlotInsulinActions()
+function [] = PlotInsulinActions(useFig2EpiData)
+if nargin<1, useFig2EpiData=1; end
+
 modelName = 'lipolysis';
-baseFolder = './Parameter sets' ;
+if useFig2EpiData
+    baseFolder='./Parameter sets';
+else
+    baseFolder='./Parameter sets (with alternative epi data)';
+end
 
 [model,data, lb, ub, nParams, expInd, stimulus, dgf] = Init(modelName, 0, 0);
 inVitroData.Normal=data.InVitro;
