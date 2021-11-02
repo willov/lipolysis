@@ -90,7 +90,7 @@ lb=repmat(log(1e-6), 1, expInd); % set lower bound for all "InVitro" parameters
 ub=repmat(log(1e6), 1, expInd); % set upper bound for all "InVitro" paramters
 
 lb=[lb 0.6   8   0   0   0   -5   log(0.5) -5 0.5  0.5 0.5];
-ub=[ub 1    12   8 20  20    3    log(1.1)  3   2    2   2];
+ub=[ub 1    12   20 20  20    3    log(1.1)  3   2    2   2];
 
 if contains(modelName, '_noIns1')
     lb([28 31])=[];
